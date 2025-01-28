@@ -7,11 +7,15 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { register } from '@/app/actions/auth'
+import { FaEye, FaEyeSlash } from "react-icons/fa";
+
 
 export default function RegisterPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -74,21 +78,39 @@ export default function RegisterPage() {
               placeholder="votre@email.com"
             />
 
-            <Input
-              label="Mot de passe"
-              name="password"
-              type="password"
-              required
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <Input
+                label="Mot de passe"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                required
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-[34px] text-gray-500 hover:text-gray-700"
+              >
+                {showPassword ? <FaEyeSlash className="h-5 w-5" /> : <FaEye className="h-5 w-5" />}
+              </button>
+            </div>
 
-            <Input
-              label="Confirmer le mot de passe"
-              name="confirmPassword"
-              type="password"
-              required
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <Input
+                label="Confirmer le mot de passe"
+                name="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                required
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-[34px] text-gray-500 hover:text-gray-700"
+              >
+                {showConfirmPassword ? <FaEyeSlash className="h-5 w-5" /> : <FaEye className="h-5 w-5" />}
+              </button>
+            </div>
 
             {error && (
               <motion.div
