@@ -51,7 +51,15 @@ export async function register(formData: FormData) {
     })
 
     // Envoyer l'email de vérification
-    await sendVerificationEmail(user.email, verifyToken)
+    const emailResult = await sendVerificationEmail(user.email, verifyToken)
+    
+    if (emailResult.error) {
+      // Si l'envoi de l'email échoue, on supprime l'utilisateur
+      await prisma.user.delete({
+        where: { id: user.id }
+      })
+      return { error: emailResult.error }
+    }
 
     return {
       success: true,
