@@ -8,12 +8,14 @@ import { useState, Suspense } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { AuthRedirect } from "@/components/auth/authRedirect";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   
   // Message de succès si l'utilisateur vient de s'inscrire
   const registered = searchParams.get('registered');
@@ -80,13 +82,22 @@ function LoginForm() {
               placeholder="votre@email.com"
             />
 
-            <Input
-              label="Mot de passe"
-              name="password"
-              type="password"
-              required
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <Input
+                label="Mot de passe"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                required
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-[34px] text-gray-500 hover:text-gray-700"
+              >
+                {showPassword ? <FaEyeSlash className="h-5 w-5" /> : <FaEye className="h-5 w-5" />}
+              </button>
+            </div>
 
             {error && (
               <motion.div

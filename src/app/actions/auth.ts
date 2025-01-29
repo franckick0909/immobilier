@@ -3,6 +3,8 @@
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
+import crypto from 'crypto'
+import { sendVerificationEmail } from '@/lib/mail'
 
 const RegisterSchema = z.object({
   name: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
@@ -29,6 +31,10 @@ export async function register(formData: FormData) {
       }
     }
 
+    // Générer un token de vérification
+    const verifyToken = crypto.randomBytes(32).toString('hex')
+    const verifyTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 heures
+
     // Hasher le mot de passe
     const hashedPassword = await bcrypt.hash(validatedFields.password, 12)
 
@@ -38,17 +44,18 @@ export async function register(formData: FormData) {
         name: validatedFields.name,
         email: validatedFields.email,
         password: hashedPassword,
-        role: 'USER', // Role par défaut
+        verifyToken,
+        verifyTokenExpiry,
+        role: 'USER',
       },
     })
 
+    // Envoyer l'email de vérification
+    await sendVerificationEmail(user.email, verifyToken)
+
     return {
       success: true,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-      }
+      message: 'Un email de vérification a été envoyé à votre adresse'
     }
 
   } catch (error) {
@@ -62,4 +69,42 @@ export async function register(formData: FormData) {
       error: 'Une erreur est survenue lors de l\'inscription'
     }
   }
+}
+
+export async function verifyEmail(token: string) {
+  try {
+    // Trouver l'utilisateur avec le token
+    const user = await prisma.user.findFirst({
+      where: {
+        verifyToken: token,
+        verifyTokenExpiry: {
+          gt: new Date()
+        }
+      }
+    })
+
+    if (!user) {
+      return {
+        error: 'Token invalide ou expiré'
+      }
+    }
+
+    // Mettre à jour l'utilisateur
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerified: new Date(),
+        verifyToken: null,
+        verifyTokenExpiry: null
+      }
+    })
+
+    return { success: true }
+  } catch (error) {
+    console.error('Erreur lors de la vérification:', error)
+    return {
+      error: 'Une erreur est survenue lors de la vérification'
+    }
+  }
+
 }

@@ -8,6 +8,7 @@ import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { register } from '@/app/actions/auth'
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { PasswordStrength } from '@/components/ui/PasswordStrength';
 
 
 export default function RegisterPage() {
@@ -16,6 +17,7 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [password, setPassword] = useState('');
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -85,7 +87,9 @@ export default function RegisterPage() {
                 type={showPassword ? "text" : "password"}
                 required
                 placeholder="••••••••"
+                onChange={(e) => setPassword(e.target.value)}
               />
+              <PasswordStrength password={password} />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
