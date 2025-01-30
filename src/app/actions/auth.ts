@@ -103,7 +103,7 @@ export async function register(formData: FormData) {
 
     return {
       success: true,
-      message: 'Un email de vérification a été envoyé à votre adresse'
+      message: 'Inscription réussie ! Veuillez vérifier votre email.'
     }
 
   } catch (error) {
@@ -124,7 +124,12 @@ export async function register(formData: FormData) {
 
 export async function verifyEmail(token: string) {
   try {
-    console.log('Tentative de vérification du token:', token)
+    console.log('Début de la vérification du token:', token)
+
+    if (!token) {
+      console.log('Token manquant')
+      return { error: 'Token manquant' }
+    }
 
     // Trouver l'utilisateur avec le token
     const user = await prisma.user.findFirst({
@@ -136,6 +141,8 @@ export async function verifyEmail(token: string) {
       }
     })
 
+    console.log('Résultat de la recherche utilisateur:', user)
+
     if (!user) {
       console.log('Token invalide ou expiré')
       return {
@@ -146,7 +153,7 @@ export async function verifyEmail(token: string) {
     console.log('Utilisateur trouvé:', { id: user.id, email: user.email })
 
     // Mettre à jour l'utilisateur
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
         emailVerified: new Date(),
@@ -155,13 +162,14 @@ export async function verifyEmail(token: string) {
       }
     })
 
-    console.log('Email vérifié avec succès')
+    console.log('Utilisateur mis à jour:', updatedUser)
+
     return { 
       success: true,
       message: 'Votre email a été vérifié avec succès'
     }
   } catch (error) {
-    console.error('Erreur lors de la vérification:', error)
+    console.error('Erreur détaillée lors de la vérification:', error)
     return {
       error: error instanceof Error ? `Erreur: ${error.message}` : 'Une erreur est survenue lors de la vérification'
     }
@@ -202,16 +210,20 @@ export async function login(formData: FormData) {
 
 export async function resendVerificationEmail(email: string) {
   try {
+    console.log('Tentative de renvoi d\'email pour:', email)
+    
     // Vérifier si l'utilisateur existe
     const user = await prisma.user.findUnique({
       where: { email }
     })
 
     if (!user) {
+      console.log('Utilisateur non trouvé')
       return { error: 'Utilisateur non trouvé' }
     }
 
     if (user.emailVerified) {
+      console.log('Email déjà vérifié')
       return { error: 'Cet email est déjà vérifié' }
     }
 
@@ -220,13 +232,15 @@ export async function resendVerificationEmail(email: string) {
     const verifyTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 heures
 
     // Mettre à jour l'utilisateur avec le nouveau token
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
         verifyToken,
         verifyTokenExpiry,
       },
     })
+
+    console.log('Token mis à jour pour l\'utilisateur:', updatedUser.id)
 
     // Envoyer le nouvel email
     const emailResult = await sendVerificationEmail(user.email, verifyToken)
@@ -236,6 +250,7 @@ export async function resendVerificationEmail(email: string) {
       return { error: 'Erreur lors de l\'envoi de l\'email' }
     }
 
+    console.log('Email de vérification renvoyé avec succès')
     return { 
       success: true,
       message: 'Un nouvel email de vérification a été envoyé'
@@ -243,7 +258,7 @@ export async function resendVerificationEmail(email: string) {
   } catch (error) {
     console.error('Erreur lors du renvoi de l\'email:', error)
     return {
-      error: 'Une erreur est survenue lors du renvoi de l\'email'
+      error: "Une erreur est survenue lors du renvoi de l'email"
     }
   }
 }
