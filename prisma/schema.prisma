@@ -18,6 +18,30 @@ model User {
   verifyTokenExpiry DateTime? // Date d'expiration du token
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  immobiliers       Immobilier[]
+}
+
+model Immobilier {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String
+  price       Float
+  address     String
+  city        String
+  zipCode     String
+  surface     Float
+  rooms       Int
+  bedrooms    Int
+  bathrooms   Int
+  type        String    // ex: "HOUSE", "APARTMENT"
+  status      String    // ex: "FOR_SALE", "FOR_RENT"
+  images      String[]  // URLs des images
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  userId      String    @db.ObjectId
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@map("immobiliers") // Nom de la collection dans MongoDB
 }
 
 enum Role {
