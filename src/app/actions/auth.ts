@@ -6,6 +6,7 @@ import { z } from 'zod'
 import crypto from 'crypto'
 import { sendVerificationEmail } from '@/lib/mail'
 
+// Schéma de validation pour l'inscription
 const RegisterSchema = z.object({
   name: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
   email: z.string().email('Email invalide'),
@@ -15,6 +16,16 @@ const RegisterSchema = z.object({
 export async function register(formData: FormData) {
   try {
     console.log('Début de l\'inscription')
+    
+    // Vérifier la connexion à la base de données
+    try {
+      await prisma.$connect()
+      console.log('Connexion à la base de données réussie')
+    } catch (dbError) {
+      console.error('Erreur de connexion à la base de données:', dbError)
+      throw new Error('Erreur de connexion à la base de données')
+    }
+
     const validatedFields = RegisterSchema.parse({
       name: formData.get('name'),
       email: formData.get('email'),
@@ -87,7 +98,12 @@ export async function register(formData: FormData) {
       },
     })
 
-    console.log('Utilisateur créé:', { id: user.id, email: user.email })
+    console.log('Utilisateur créé:', {
+      id: user.id,
+      email: user.email,
+      verifyToken: user.verifyToken,
+      expiry: user.verifyTokenExpiry
+    })
 
     // Envoyer l'email de vérification
     const emailResult = await sendVerificationEmail(user.email, verifyToken)
@@ -119,59 +135,73 @@ export async function register(formData: FormData) {
     return {
       error: error instanceof Error ? `Erreur: ${error.message}` : 'Une erreur est survenue lors de l\'inscription'
     }
+  } finally {
+    await prisma.$disconnect()
   }
 }
 
 export async function verifyEmail(token: string) {
   try {
-    console.log('Début de la vérification du token:', token)
+    console.log('Début de la vérification avec token:', token)
 
     if (!token) {
       console.log('Token manquant')
       return { error: 'Token manquant' }
     }
 
-    // Trouver l'utilisateur avec le token
+    // Vérifier si le token existe et n'est pas expiré
     const user = await prisma.user.findFirst({
       where: {
         verifyToken: token,
         verifyTokenExpiry: {
-          gt: new Date()
+          gt: new Date() // Vérifie que le token n'est pas expiré
         }
       }
     })
 
-    console.log('Résultat de la recherche utilisateur:', user)
-
-    if (!user) {
-      console.log('Token invalide ou expiré')
-      return {
-        error: 'Token invalide ou expiré'
-      }
-    }
-
-    console.log('Utilisateur trouvé:', { id: user.id, email: user.email })
-
-    // Mettre à jour l'utilisateur
-    const updatedUser = await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        emailVerified: new Date(),
-        verifyToken: null,
-        verifyTokenExpiry: null
-      }
+    console.log('Résultat de la recherche utilisateur:', {
+      found: !!user,
+      email: user?.email,
+      tokenExpiry: user?.verifyTokenExpiry
     })
 
-    console.log('Utilisateur mis à jour:', updatedUser)
+    if (!user) {
+      return {
+        error: 'Token invalide ou expiré. Veuillez demander un nouveau lien de vérification.'
+      }
+    }
 
-    return { 
-      success: true,
-      message: 'Votre email a été vérifié avec succès'
+    try {
+      // Mettre à jour l'utilisateur
+      const updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          emailVerified: new Date(),
+          verifyToken: null,        // Réinitialiser le token
+          verifyTokenExpiry: null   // Réinitialiser l'expiration
+        }
+      })
+
+      console.log('Utilisateur mis à jour avec succès:', {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        emailVerified: updatedUser.emailVerified
+      })
+
+      return { 
+        success: true,
+        message: 'Votre email a été vérifié avec succès'
+      }
+    } catch (updateError) {
+      console.error('Erreur lors de la mise à jour:', updateError)
+      return {
+        error: 'Erreur lors de la mise à jour de la vérification'
+      }
     }
   } catch (error) {
-    console.error('Erreur détaillée lors de la vérification:', error)
+    console.error('Erreur complète lors de la vérification:', error)
     return {
-      error: error instanceof Error ? `Erreur: ${error.message}` : 'Une erreur est survenue lors de la vérification'
+      error: 'Une erreur est survenue lors de la vérification'
     }
   }
 }
@@ -181,24 +211,30 @@ export async function login(formData: FormData) {
     const email = formData.get('email') as string
     const password = formData.get('password') as string
 
+    console.log('Tentative de connexion pour:', email)
+
     const user = await prisma.user.findUnique({
       where: { email },
     })
 
     if (!user) {
+      console.log('Utilisateur non trouvé')
       return { error: 'Email ou mot de passe incorrect' }
     }
 
     if (!user.emailVerified) {
+      console.log('Email non vérifié')
       return { error: 'Veuillez vérifier votre email avant de vous connecter' }
     }
 
     const passwordMatch = await bcrypt.compare(password, user.password)
 
     if (!passwordMatch) {
+      console.log('Mot de passe incorrect')
       return { error: 'Email ou mot de passe incorrect' }
     }
 
+    console.log('Connexion réussie pour:', email)
     return { success: true }
   } catch (error) {
     console.error('Erreur lors de la connexion:', error)
@@ -258,7 +294,7 @@ export async function resendVerificationEmail(email: string) {
   } catch (error) {
     console.error('Erreur lors du renvoi de l\'email:', error)
     return {
-      error: "Une erreur est survenue lors du renvoi de l'email"
+      error: 'Une erreur est survenue lors du renvoi de l\'email'
     }
   }
 }
