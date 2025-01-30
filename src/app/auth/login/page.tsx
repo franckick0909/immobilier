@@ -4,13 +4,13 @@ import { Button } from "@/components/ui/buttons"
 import { Input } from "@/components/ui/input"
 import { signIn } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useState, Suspense, useRef } from "react"
+import { useState, Suspense } from "react"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { AuthRedirect } from "@/components/auth/authRedirect"
 import { FaEye, FaEyeSlash } from "react-icons/fa"
 import { login } from "@/app/actions/auth"
-import { SendgridVerificationButton } from "@/components/auth/sendgridVerificationButton"
+import { SendgridVerificationButton } from '@/components/auth/sendgridVerificationButton'
 
 function LoginForm() {
   const router = useRouter()
@@ -18,7 +18,7 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const formRef = useRef<HTMLFormElement>(null)
+  const [currentEmail, setCurrentEmail] = useState('')
   
   const registered = searchParams.get('registered')
 
@@ -30,19 +30,13 @@ function LoginForm() {
     const formData = new FormData(event.currentTarget)
     const email = formData.get("email") as string
     const password = formData.get("password") as string
+    setCurrentEmail(email)
 
     try {
       // Utiliser la fonction login personnalisée d'abord
       const loginResult = await login(formData)
       
       if (loginResult.error) {
-        if (loginResult.error === 'Veuillez vérifier votre email avant de vous connecter') {
-          setError(
-            'Votre email n\'a pas encore été vérifié. Veuillez vérifier votre boîte de réception et cliquer sur le lien de vérification.'
-          )
-          setIsLoading(false)
-          return
-        }
         setError(loginResult.error)
         setIsLoading(false)
         return
@@ -64,8 +58,8 @@ function LoginForm() {
       router.push("/dashboard")
       router.refresh()
     } catch (error) {
-      console.error(error)
-      setError("Une erreur est survenue")
+      console.error('Erreur lors de la connexion:', error)
+      setError("Une erreur est survenue lors de la connexion")
     } finally {
       setIsLoading(false)
     }
@@ -83,7 +77,7 @@ function LoginForm() {
             Connexion
           </h2>
 
-          {registered && !error && (
+          {registered && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -93,7 +87,7 @@ function LoginForm() {
             </motion.div>
           )}
 
-          <form ref={formRef} onSubmit={onSubmit} className="space-y-6">
+          <form onSubmit={onSubmit} className="space-y-6">
             <Input
               label="Email"
               name="email"
@@ -126,21 +120,12 @@ function LoginForm() {
                 className="p-4 bg-red-50 border border-red-200 rounded-md"
               >
                 <p className="text-sm text-red-700">{error}</p>
-                {error.includes('email n\'a pas encore été vérifié') && (
+                {error.includes('vérifier votre email') && currentEmail && (
                   <div className="mt-2 space-y-2">
                     <p className="text-xs text-gray-500">
                       Si vous n&apos;avez pas reçu l&apos;email de vérification, vous pouvez :
                     </p>
-                    <SendgridVerificationButton 
-                      email={formRef.current?.email.value || ''} 
-                    />
-                    <p className="text-xs text-gray-500">
-                      ou{' '}
-                      <Link href="/auth/register" className="text-blue-600 hover:text-blue-500">
-                        vous réinscrire
-                      </Link>
-                      {' '}pour créer un nouveau compte.
-                    </p>
+                    <SendgridVerificationButton email={currentEmail} />
                   </div>
                 )}
               </motion.div>

@@ -16,12 +16,12 @@ function VerifyContent() {
     async function verify() {
       if (!token) {
         setStatus('error')
-        setMessage('Token manquant')
+        setMessage('Lien de vérification invalide. Veuillez utiliser le lien envoyé par email.')
         return
       }
 
       try {
-        console.log('Vérification du token:', token)
+        console.log('Début de la vérification avec le token:', token)
         const result = await verifyEmail(token)
         
         if (result.error) {
@@ -31,12 +31,12 @@ function VerifyContent() {
         } else {
           console.log('Vérification réussie')
           setStatus('success')
-          setMessage('Votre email a été vérifié avec succès !')
+          setMessage(result.message || 'Votre email a été vérifié avec succès !')
         }
       } catch (error) {
-        console.error('Erreur lors de la vérification:', error)
+        console.error('Erreur complète lors de la vérification:', error)
         setStatus('error')
-        setMessage('Une erreur est survenue lors de la vérification')
+        setMessage('Une erreur inattendue est survenue. Veuillez réessayer plus tard.')
       }
     }
 
@@ -87,10 +87,10 @@ function VerifyContent() {
             <h2 className="mt-4 text-2xl font-bold text-gray-900">Échec de la vérification</h2>
             <p className="mt-2 text-red-600">{message}</p>
             <button
-              onClick={() => router.push('/auth/register')}
+              onClick={() => router.push('/auth/login')}
               className="mt-6 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
             >
-              Retour à l&apos;inscription
+              Retour à la connexion
             </button>
           </div>
         )}

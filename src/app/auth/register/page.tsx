@@ -27,9 +27,9 @@ export default function RegisterPage() {
     setError(null)
 
     const formData = new FormData(event.currentTarget)
+    const email = formData.get('email') as string
     const password = formData.get('password') as string
     const confirmPassword = formData.get('confirmPassword') as string
-    const email = formData.get('email') as string
 
     if (password !== confirmPassword) {
       setError('Les mots de passe ne correspondent pas')
@@ -48,10 +48,10 @@ export default function RegisterPage() {
 
       setRegisteredEmail(email)
       setIsModalOpen(true)
-      setIsLoading(false)
     } catch (error) {
-      console.error(error)
-      setError('Une erreur est survenue')
+      console.error('Erreur lors de l\'inscription:', error)
+      setError('Une erreur est survenue lors de l\'inscription')
+    } finally {
       setIsLoading(false)
     }
   }
@@ -151,15 +151,15 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false)
+          router.push('/auth/login')
+        }}
+      >
         <div className="text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-            <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          
-          <h3 className="mt-4 text-lg font-medium text-gray-900">
+          <h3 className="text-lg font-medium text-gray-900">
             Vérifiez votre email
           </h3>
           
