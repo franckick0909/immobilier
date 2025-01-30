@@ -12,21 +12,20 @@ function VerifyContent() {
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    if (!token) {
+    if (token) {
+      verifyEmail(token).then((result) => {
+        if (result.success) {
+          setStatus('success')
+          setMessage('Votre email a été vérifié avec succès !')
+        } else {
+          setStatus('error')
+          setMessage(result.error || 'Une erreur est survenue')
+        }
+      })
+    } else {
       setStatus('error')
-      setMessage('Token de vérification manquant')
-      return
+      setMessage('Token manquant')
     }
-
-    verifyEmail(token).then((result) => {
-      if (result.error) {
-        setStatus('error')
-        setMessage(result.error)
-      } else {
-        setStatus('success')
-        setMessage('Email vérifié avec succès ! Vous pouvez maintenant vous connecter.')
-      }
-    })
   }, [token])
 
   return (

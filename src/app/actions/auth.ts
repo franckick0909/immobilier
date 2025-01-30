@@ -14,7 +14,7 @@ const RegisterSchema = z.object({
 
 export async function register(formData: FormData) {
   try {
-    // Valider les données du formulaire
+    console.log('Début de l\'inscription')
     const validatedFields = RegisterSchema.parse({
       name: formData.get('name'),
       email: formData.get('email'),
@@ -54,7 +54,7 @@ export async function register(formData: FormData) {
         
         if (emailResult.error) {
           console.error('Erreur lors du renvoi de l\'email:', emailResult.error)
-          return { error: `Erreur lors de l'envoi de l'email: ${emailResult.error}` }
+          return { error: emailResult.error }
         }
 
         return {
@@ -63,13 +63,10 @@ export async function register(formData: FormData) {
         }
       }
 
-      console.log('Email déjà utilisé et vérifié')
       return {
         error: 'Cet email est déjà utilisé'
       }
     }
-
-    console.log('Création d\'un nouvel utilisateur')
 
     // Générer un token de vérification
     const verifyToken = crypto.randomBytes(32).toString('hex')
@@ -101,17 +98,18 @@ export async function register(formData: FormData) {
       await prisma.user.delete({
         where: { id: user.id }
       })
-      return { error: `Erreur lors de l'envoi de l'email: ${emailResult.error}` }
+      return { error: emailResult.error }
     }
 
-    console.log('Email de vérification envoyé avec succès')
     return {
       success: true,
       message: 'Un email de vérification a été envoyé à votre adresse'
     }
 
   } catch (error) {
-    console.error('Erreur détaillée:', error)
+    console.error('Erreur complète:', error)
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace')
+    
     if (error instanceof z.ZodError) {
       return {
         error: error.errors[0].message
@@ -198,6 +196,54 @@ export async function login(formData: FormData) {
     console.error('Erreur lors de la connexion:', error)
     return {
       error: 'Une erreur est survenue lors de la connexion'
+    }
+  }
+}
+
+export async function resendVerificationEmail(email: string) {
+  try {
+    // Vérifier si l'utilisateur existe
+    const user = await prisma.user.findUnique({
+      where: { email }
+    })
+
+    if (!user) {
+      return { error: 'Utilisateur non trouvé' }
+    }
+
+    if (user.emailVerified) {
+      return { error: 'Cet email est déjà vérifié' }
+    }
+
+    // Générer un nouveau token
+    const verifyToken = crypto.randomBytes(32).toString('hex')
+    const verifyTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 heures
+
+    // Mettre à jour l'utilisateur avec le nouveau token
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        verifyToken,
+        verifyTokenExpiry,
+      },
+    })
+
+    // Envoyer le nouvel email
+    const emailResult = await sendVerificationEmail(user.email, verifyToken)
+    
+    if (emailResult.error) {
+      console.error('Erreur lors de l\'envoi de l\'email:', emailResult.error)
+      return { error: 'Erreur lors de l\'envoi de l\'email' }
+    }
+
+    return { 
+      success: true,
+      message: 'Un nouvel email de vérification a été envoyé'
+    }
+  } catch (error) {
+    console.error('Erreur lors du renvoi de l\'email:', error)
+    return {
+      error: 'Une erreur est survenue lors du renvoi de l\'email'
     }
   }
 }

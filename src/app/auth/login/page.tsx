@@ -1,53 +1,73 @@
 'use client'
 
-import { Button } from "@/components/ui/buttons";
-import { Input } from "@/components/ui/input";
-import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState, Suspense } from "react";
-import { motion } from "framer-motion";
-import Link from "next/link";
-import { AuthRedirect } from "@/components/auth/authRedirect";
-import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { Button } from "@/components/ui/buttons"
+import { Input } from "@/components/ui/input"
+import { signIn } from "next-auth/react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useState, Suspense, useRef } from "react"
+import { motion } from "framer-motion"
+import Link from "next/link"
+import { AuthRedirect } from "@/components/auth/authRedirect"
+import { FaEye, FaEyeSlash } from "react-icons/fa"
+import { login } from "@/app/actions/auth"
+import { SendgridVerificationButton } from "@/components/auth/sendgridVerificationButton"
 
 function LoginForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const formRef = useRef<HTMLFormElement>(null)
   
-  // Message de succès si l'utilisateur vient de s'inscrire
-  const registered = searchParams.get('registered');
+  const registered = searchParams.get('registered')
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setIsLoading(true);
-    setError(null);
+    event.preventDefault()
+    setIsLoading(true)
+    setError(null)
 
-    const formData = new FormData(event.currentTarget);
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
+    const formData = new FormData(event.currentTarget)
+    const email = formData.get("email") as string
+    const password = formData.get("password") as string
 
     try {
+      // Utiliser la fonction login personnalisée d'abord
+      const loginResult = await login(formData)
+      
+      if (loginResult.error) {
+        if (loginResult.error === 'Veuillez vérifier votre email avant de vous connecter') {
+          setError(
+            'Votre email n\'a pas encore été vérifié. Veuillez vérifier votre boîte de réception et cliquer sur le lien de vérification.'
+          )
+          setIsLoading(false)
+          return
+        }
+        setError(loginResult.error)
+        setIsLoading(false)
+        return
+      }
+
+      // Si la vérification est OK, procéder à la connexion avec NextAuth
       const result = await signIn("credentials", {
         email,
         password,
         redirect: false,
-      });
+      })
 
       if (result?.error) {
-        setError("Identifiants invalides");
-        return;
+        setError("Identifiants invalides")
+        setIsLoading(false)
+        return
       }
 
-      router.push("/dashboard");
-      router.refresh();
+      router.push("/dashboard")
+      router.refresh()
     } catch (error) {
-      console.error(error);
-      setError("Une erreur est survenue");
+      console.error(error)
+      setError("Une erreur est survenue")
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
   }
 
@@ -63,17 +83,17 @@ function LoginForm() {
             Connexion
           </h2>
 
-          {registered && (
+          {registered && !error && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="mb-4 p-4 bg-green-50 text-green-600 rounded-md text-center"
             >
-              Inscription réussie ! Vous pouvez maintenant vous connecter.
+              Inscription réussie ! Veuillez vérifier votre email avant de vous connecter.
             </motion.div>
           )}
 
-          <form onSubmit={onSubmit} className="space-y-6">
+          <form ref={formRef} onSubmit={onSubmit} className="space-y-6">
             <Input
               label="Email"
               name="email"
@@ -103,9 +123,26 @@ function LoginForm() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-center text-red-500"
+                className="p-4 bg-red-50 border border-red-200 rounded-md"
               >
-                {error}
+                <p className="text-sm text-red-700">{error}</p>
+                {error.includes('email n\'a pas encore été vérifié') && (
+                  <div className="mt-2 space-y-2">
+                    <p className="text-xs text-gray-500">
+                      Si vous n&apos;avez pas reçu l&apos;email de vérification, vous pouvez :
+                    </p>
+                    <SendgridVerificationButton 
+                      email={formRef.current?.email.value || ''} 
+                    />
+                    <p className="text-xs text-gray-500">
+                      ou{' '}
+                      <Link href="/auth/register" className="text-blue-600 hover:text-blue-500">
+                        vous réinscrire
+                      </Link>
+                      {' '}pour créer un nouveau compte.
+                    </p>
+                  </div>
+                )}
               </motion.div>
             )}
 
@@ -126,7 +163,7 @@ function LoginForm() {
         </div>
       </div>
     </motion.div>
-  );
+  )
 }
 
 export default function LoginPage() {
@@ -143,5 +180,5 @@ export default function LoginPage() {
         <LoginForm />
       </Suspense>
     </>
-  );
+  )
 }

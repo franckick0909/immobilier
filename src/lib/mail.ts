@@ -1,5 +1,6 @@
 import sgMail from '@sendgrid/mail'
 
+// Configuration du type d'erreur SendGrid
 interface SendGridError {
   response?: {
     body?: {
@@ -8,14 +9,29 @@ interface SendGridError {
   }
 }
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY!)
+// Vérification que la clé API existe
+if (!process.env.SENDGRID_API_KEY) {
+  throw new Error('SENDGRID_API_KEY is not defined')
+}
+
+// Configuration de SendGrid
+sgMail.setApiKey(process.env.SENDGRID_API_KEY)
 
 export async function sendVerificationEmail(email: string, token: string) {
-  const confirmLink = `${process.env.NEXTAUTH_URL}/auth/verify?token=${token}`
+
+  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+  const confirmLink = `${baseUrl}/auth/verify?token=${token}`
+
+  console.log('Configuration email:', {
+    to: email,
+    from: 'franckchapelon09@gmail.com',
+    baseUrl,
+    confirmLink
+  })
 
   const msg = {
     to: email,
-    from: 'franckchapelon09@gmail.com', // Email vérifié sur SendGrid
+    from: 'franckchapelon09@gmail.com',
     subject: 'Vérifiez votre adresse email - ImmoApp',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -33,10 +49,6 @@ export async function sendVerificationEmail(email: string, token: string) {
             Vérifier mon email
           </a>
         </div>
-        
-        <p style="font-size: 14px; color: #6b7280; margin-top: 30px;">
-          Si vous n'avez pas créé de compte sur ImmoApp, vous pouvez ignorer cet email.
-        </p>
       </div>
     `
   }
@@ -48,19 +60,19 @@ export async function sendVerificationEmail(email: string, token: string) {
     return { success: true }
   } catch (error) {
     console.error('Erreur détaillée SendGrid:', error)
+    console.error('Type d\'erreur:', typeof error)
+    console.error('Propriétés de l\'erreur:', Object.keys(error as object))
     
-    // Type l'erreur comme SendGridError
     const sendGridError = error as SendGridError
     
     if (sendGridError.response?.body) {
       console.error('Corps de l\'erreur SendGrid:', sendGridError.response.body)
     }
 
-    // Si c'est une erreur standard
-    if (error instanceof Error) {
-      return { error: error.message }
+    return { 
+      error: error instanceof Error ? 
+        `Erreur SendGrid: ${error.message}` : 
+        'Erreur lors de l\'envoi de l\'email'
     }
-
-    return { error: 'Erreur lors de l\'envoi de l\'email' }
   }
 }
