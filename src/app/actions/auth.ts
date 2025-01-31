@@ -12,9 +12,9 @@ interface RegisterData {
   password: string
 }
 
-interface LoginData {
-  email: string
-  password: string
+export interface LoginData {
+  email: string;
+  password: string;
 }
 
 // Fonction d'inscription
@@ -64,12 +64,17 @@ export async function register(data: RegisterData) {
 }
 
 // Fonction de connexion
-export async function login(credentials: LoginData) {
+export async function login(formData: FormData) {
   try {
+    const email = formData.get('email') as string
+    const password = formData.get('password') as string
+
+    if (!email || !password) {
+      return { error: "Email et mot de passe requis" }
+    }
+
     const user = await prisma.user.findUnique({
-      where: {
-        email: credentials.email
-      }
+      where: { email }
     })
 
     if (!user) {
@@ -89,8 +94,7 @@ export async function login(credentials: LoginData) {
       return { error: 'Veuillez vérifier votre email avant de vous connecter' }
     }
 
-    const passwordMatch = await bcrypt.compare(credentials.password, user.password)
-
+    const passwordMatch = await bcrypt.compare(password, user.password)
     if (!passwordMatch) {
       console.log('Mot de passe incorrect')
       return { error: 'Email ou mot de passe incorrect' }

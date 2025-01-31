@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { resendVerificationEmail } from '@/app/actions/auth'
 import { motion } from 'framer-motion'
+import { resendVerificationEmail } from '@/app/actions/email'
 
 interface SendgridVerificationButtonProps {
   email: string
@@ -16,7 +16,7 @@ export function SendgridVerificationButton({ email }: SendgridVerificationButton
 
   const startCountdown = () => {
     setIsDisabled(true)
-    setCountdown(60) // 60 secondes
+    setCountdown(60)
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
@@ -36,14 +36,11 @@ export function SendgridVerificationButton({ email }: SendgridVerificationButton
     setMessage(null)
 
     try {
-      console.log('Tentative de renvoi pour:', email)
       const result = await resendVerificationEmail(email)
-      
+
       if (result.error) {
-        console.error('Erreur lors du renvoi:', result.error)
         setMessage({ type: 'error', text: result.error })
       } else {
-        console.log('Email renvoyé avec succès')
         setMessage({ 
           type: 'success', 
           text: 'Un nouvel email de vérification a été envoyé' 
@@ -51,7 +48,7 @@ export function SendgridVerificationButton({ email }: SendgridVerificationButton
         startCountdown()
       }
     } catch (error) {
-      console.error('Erreur lors de l\'envoi de l\'email de vérification :', error)
+      console.error('Erreur lors de l\'envoi de l\'email de vérification:', error)
       setMessage({ 
         type: 'error', 
         text: 'Une erreur est survenue lors de l\'envoi' 
