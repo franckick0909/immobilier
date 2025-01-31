@@ -20,6 +20,7 @@ export async function register(data: RegisterData) {
   const { name, email, password } = data
 
   try {
+    console.log('Starting registration process')
     // Validation des données
     if (!name || !email || !password) {
       return { error: 'Tous les champs sont requis' }
@@ -37,18 +38,21 @@ export async function register(data: RegisterData) {
 
     // Vérifier si l'email existe déjà
     const existingUser = await prisma.user.findUnique({
-      where: { email }
+      where: { email },
+      select: { id: true } // Sélectionner uniquement l'ID pour optimiser
     })
 
     if (existingUser) {
       return { error: 'Cet email est déjà utilisé' }
     }
 
-    // Hasher le mot de passe
-    const hashedPassword = await bcrypt.hash(password, 12)
+    // Hasher le mot de passe en parallèle avec la génération du token
+    const [hashedPassword, verifyToken] = await Promise.all([
+      bcrypt.hash(password, 12),
+      crypto.randomBytes(32).toString('hex')
+    ])
 
     // Générer le token de vérification
-    const verifyToken = crypto.randomBytes(32).toString('hex')
     const verifyTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 heures
 
     // Créer l'utilisateur
@@ -59,21 +63,21 @@ export async function register(data: RegisterData) {
         password: hashedPassword,
         verifyToken,
         verifyTokenExpiry,
-
         role: 'USER'
-      }
+      },
+      select: { id: true, email: true } // Sélectionner uniquement les champs nécessaires
     })
 
-    console.log('User created successfully:', user.id)
+    // Envoyer l'email de vérification de manière asynchrone
+    sendVerificationEmail(email, verifyToken).catch(error => {
+      console.error('Error sending verification email:', error)
+      // Ne pas bloquer l'inscription si l'email échoue
+    })
 
-    // Envoyer l'email de vérification
-    console.log('Attempting to send verification email')
-    await sendVerificationEmail(email, verifyToken)
-
-    console.log('Utilisateur créé avec succès:', email)
+    console.log('User registered successfully:', user.id)
     return { success: true }
   } catch (error) {
-    console.error('Erreur lors de l\'inscription:', error)
+    console.error('Registration error:', error)
     return { error: 'Une erreur est survenue lors de l\'inscription' }
   }
 }

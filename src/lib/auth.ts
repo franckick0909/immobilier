@@ -5,13 +5,13 @@ import GoogleProvider from "next-auth/providers/google"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
 
-// Définition des types personnalisés
 interface AuthUser {
   id: string;
   email: string;
   name: string | null;
   role: 'USER' | 'ADMIN';
   image?: string | null;
+
 }
 
 declare module "next-auth" {
