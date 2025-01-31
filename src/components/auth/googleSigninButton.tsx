@@ -10,7 +10,11 @@ export function GoogleSignInButton() {
   const handleClick = async () => {
     try {
       setIsLoading(true)
-      await signIn('google', { callbackUrl: '/', prompt: "select_account" })
+      await signIn('google', {
+        callbackUrl: '/',
+        prompt: 'select_account',
+        access_type: 'offline',
+      })
     } catch (error) {
       console.error('Erreur de connexion Google:', error)
     } finally {

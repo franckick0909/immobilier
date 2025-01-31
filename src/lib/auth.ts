@@ -43,11 +43,20 @@ declare module "next-auth/jwt" {
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
+  debug: true,
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          prompt: "select_account",
+          access_type: "offline",
+          response_type: "code"
+        }
+      },
       profile(profile) {
+        console.log('Profile Google reçu:', profile) // Log pour déboguer
         return {
           id: profile.sub,
           name: profile.name,
@@ -120,29 +129,32 @@ export const authOptions: NextAuthOptions = {
         }
       }
     },
-    async signIn({ account, profile }) {
+    async signIn({ account, profile, user }) {
+      console.log('SignIn callback:', { account, profile, user }) // Log pour déboguer
       if (account?.provider === "google") {
         if (!profile?.email) {
-          throw new Error("Aucun email trouvé dans le profil Google")
+          console.error('Pas d\'email dans le profil Google')
+          return false
         }
         
-        const existingUser = await prisma.user.findUnique({
-          where: { email: profile.email }
-        })
-
-        if (existingUser) {
-          // Si l'utilisateur existe déjà, on autorise la connexion
-          return true
-        }
-
         try {
-          await prisma.user.create({
+          const existingUser = await prisma.user.findUnique({
+            where: { email: profile.email }
+          })
+
+          console.log('Utilisateur existant:', existingUser) // Log pour déboguer
+
+          if (existingUser) {
+            return true
+          }
+
+          const newUser = await prisma.user.create({
             data: {
               email: profile.email,
               name: profile.name,
               emailVerified: new Date(),
               role: 'USER',
-              image: profile.image as string,
+              image: profile.image ?? null,
               password: '', // Champ requis mais vide pour les utilisateurs Google
               accounts: {
                 create: {
@@ -157,6 +169,7 @@ export const authOptions: NextAuthOptions = {
               }
             }
           })
+          console.log('Nouvel utilisateur créé:', newUser) // Log pour déboguer
           return true
         } catch (error) {
           console.error('Erreur lors de la création de l\'utilisateur Google:', error)
