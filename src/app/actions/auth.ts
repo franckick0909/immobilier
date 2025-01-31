@@ -16,6 +16,45 @@ interface LoginData {
   password: string
 }
 
+export async function verifyEmail(token: string) {
+  try {
+    // Vérifier si le token existe
+    const user = await prisma.user.findFirst({
+      where: {
+        verifyToken: token,
+        verifyTokenExpiry: {
+          gt: new Date()
+        }
+      }
+    })
+
+    if (!user) {
+      return { 
+        error: "Le lien de vérification est invalide ou a expiré" 
+      }
+    }
+
+    // Mettre à jour l'utilisateur
+    await prisma.user.update({
+      where: {
+        id: user.id
+      },
+      data: {
+        emailVerified: new Date(),
+        verifyToken: null,
+        verifyTokenExpiry: null
+      }
+    })
+
+    return { success: true }
+  } catch (error) {
+    console.error('Erreur lors de la vérification de l\'email:', error)
+    return { 
+      error: "Une erreur est survenue lors de la vérification de l'email" 
+    }
+  }
+}
+
 export async function register(data: RegisterData) {
   const { name, email, password } = data
 

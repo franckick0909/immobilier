@@ -8,109 +8,102 @@ import { motion } from 'framer-motion'
 function VerifyContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const token = searchParams.get('token')
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [message, setMessage] = useState('')
 
   useEffect(() => {
     async function verify() {
+      const token = searchParams.get('token')
+
       if (!token) {
         setStatus('error')
-        setMessage('Lien de vérification invalide. Veuillez utiliser le lien envoyé par email.')
+        setMessage('Token de vérification manquant')
         return
       }
 
       try {
-        console.log('Début de la vérification avec le token:', token)
         const result = await verifyEmail(token)
-        
+
         if (result.error) {
-          console.error('Erreur de vérification:', result.error)
           setStatus('error')
           setMessage(result.error)
         } else {
-          console.log('Vérification réussie')
           setStatus('success')
-          setMessage(result.message || 'Votre email a été vérifié avec succès !')
+          setMessage('Email vérifié avec succès')
+          // Rediriger vers la page de connexion après 3 secondes
+          setTimeout(() => {
+            router.push('/auth/login')
+          }, 3000)
         }
       } catch (error) {
-        console.error('Erreur complète lors de la vérification:', error)
+        console.error('Erreur lors de la vérification de l\'email:', error)
         setStatus('error')
-        setMessage('Une erreur inattendue est survenue. Veuillez réessayer plus tard.')
+        setMessage('Une erreur est survenue')
       }
     }
 
     verify()
-  }, [token])
+  }, [searchParams, router])
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg"
-      >
-        {status === 'loading' && (
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Vérification en cours...</p>
-          </div>
-        )}
-        
-        {status === 'success' && (
-          <div className="text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-              <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h2 className="mt-4 text-2xl font-bold text-gray-900">{message}</h2>
-            <p className="mt-2 text-gray-600">
-              Vous pouvez maintenant vous connecter à votre compte.
-            </p>
-            <button
-              onClick={() => router.push('/auth/login')}
-              className="mt-6 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
-            >
-              Aller à la page de connexion
-            </button>
-          </div>
-        )}
-        
-        {status === 'error' && (
-          <div className="text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-              <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-            <h2 className="mt-4 text-2xl font-bold text-gray-900">Échec de la vérification</h2>
-            <p className="mt-2 text-red-600">{message}</p>
-            <button
-              onClick={() => router.push('/auth/login')}
-              className="mt-6 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
-            >
-              Retour à la connexion
-            </button>
-          </div>
-        )}
-      </motion.div>
-    </div>
-  )
-}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="min-h-screen flex items-center justify-center bg-gray-50 px-4"
+    >
+      <div className="w-full max-w-md">
+        <div className="bg-white px-6 py-8 rounded-xl shadow-lg text-center">
+          <h2 className="text-2xl font-bold mb-4">
+            Vérification de l&apos;email
+          </h2>
 
-// Composant de chargement pour Suspense
-function LoadingFallback() {
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-    </div>
+          {status === 'loading' && (
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+          )}
+
+          {status === 'success' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-green-600"
+            >
+              <p>{message}</p>
+              <p className="text-sm mt-2">
+                Redirection vers la page de connexion...
+              </p>
+            </motion.div>
+          )}
+
+          {status === 'error' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-red-600"
+            >
+              <p>{message}</p>
+              <button
+                onClick={() => router.push('/auth/login')}
+                className="mt-4 text-blue-600 hover:text-blue-500 underline"
+              >
+                Retour à la connexion
+              </button>
+            </motion.div>
+          )}
+        </div>
+      </div>
+    </motion.div>
   )
 }
 
 export default function VerifyPage() {
   return (
-    <Suspense fallback={<LoadingFallback />}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      }
+    >
       <VerifyContent />
     </Suspense>
   )
