@@ -3,19 +3,28 @@
 import { Button } from "@/components/ui/buttons"
 import { Input } from "@/components/ui/input"
 import { register } from "@/app/actions/auth"
-import { useRouter } from "next/navigation"
 import { useState, Suspense } from "react"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { AuthRedirect } from "@/components/auth/authRedirect"
+
 import { FaEye, FaEyeSlash } from "react-icons/fa"
 import { GoogleSignInButton } from "@/components/auth/googleSigninButton"
+import { PasswordStrength } from "@/components/ui/PasswordStrength"
+import { Modal } from "@/components/ui/Modal"
+import { VerificationModalContent } from "@/components/auth/verificationModalContent"
+
+
 
 function RegisterForm() {
-  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [registeredEmail, setRegisteredEmail] = useState("")
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -23,23 +32,36 @@ function RegisterForm() {
     setError(null)
 
     const formData = new FormData(event.currentTarget)
-    
-    // Extraire les données du FormData
-    const registerData = {
-      name: formData.get('name') as string,
-      email: formData.get('email') as string,
-      password: formData.get('password') as string
-    }
+    const name = formData.get('name') as string
+    const email = formData.get('email') as string
+    const password = formData.get('password') as string
+    const confirmPassword = formData.get('confirmPassword') as string
 
-    // Validation basique
-    if (!registerData.name || !registerData.email || !registerData.password) {
+    // Validation
+    if (!name || !email || !password || !confirmPassword) {
       setError('Tous les champs sont requis')
       setIsLoading(false)
       return
     }
 
+    if (password !== confirmPassword) {
+      setError('Les mots de passe ne correspondent pas')
+      setIsLoading(false)
+      return
+    }
+
+    if (password.length < 8) {
+      setError('Le mot de passe doit contenir au moins 8 caractères')
+      setIsLoading(false)
+      return
+    }
+
     try {
-      const result = await register(registerData)
+      const result = await register({
+        name,
+        email,
+        password
+      })
 
       if (result.error) {
         setError(result.error)
@@ -47,8 +69,9 @@ function RegisterForm() {
         return
       }
 
-      // Si l'inscription réussit, rediriger vers la page de connexion
-      router.push('/auth/login?registered=true')
+      // Ouvrir la modal après une inscription réussie
+      setRegisteredEmail(email)
+      setIsModalOpen(true)
     } catch (error) {
       console.error('Erreur lors de l\'inscription:', error)
       setError('Une erreur est survenue lors de l\'inscription')
@@ -58,10 +81,12 @@ function RegisterForm() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="min-h-screen flex items-center justify-center bg-gray-50 px-4"
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="min-h-screen flex items-center justify-center bg-gray-50 px-4"
+
     >
       <div className="w-full max-w-md space-y-8">
         <div className="bg-white px-6 py-8 rounded-xl shadow-lg">
@@ -93,6 +118,8 @@ function RegisterForm() {
                 type={showPassword ? "text" : "password"}
                 required
                 placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
               <button
                 type="button"
@@ -100,6 +127,31 @@ function RegisterForm() {
                 className="absolute right-3 top-[34px] text-gray-500 hover:text-gray-700"
               >
                 {showPassword ? (
+                  <FaEyeSlash className="h-5 w-5" />
+                ) : (
+                  <FaEye className="h-5 w-5" />
+                )}
+              </button>
+              <PasswordStrength password={password} />
+            </div>
+
+
+            <div className="relative">
+              <Input
+                label="Confirmer le mot de passe"
+                name="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                required
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-[34px] text-gray-500 hover:text-gray-700"
+              >
+                {showConfirmPassword ? (
                   <FaEyeSlash className="h-5 w-5" />
                 ) : (
                   <FaEye className="h-5 w-5" />
@@ -150,8 +202,16 @@ function RegisterForm() {
         </div>
       </div>
     </motion.div>
+    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+        <VerificationModalContent 
+          email={registeredEmail} 
+          onClose={() => setIsModalOpen(false)} 
+        />
+      </Modal>
+    </>
   )
 }
+
 
 export default function RegisterPage() {
   return (

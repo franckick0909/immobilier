@@ -16,45 +16,6 @@ interface LoginData {
   password: string
 }
 
-export async function verifyEmail(token: string) {
-  try {
-    // Vérifier si le token existe
-    const user = await prisma.user.findFirst({
-      where: {
-        verifyToken: token,
-        verifyTokenExpiry: {
-          gt: new Date()
-        }
-      }
-    })
-
-    if (!user) {
-      return { 
-        error: "Le lien de vérification est invalide ou a expiré" 
-      }
-    }
-
-    // Mettre à jour l'utilisateur
-    await prisma.user.update({
-      where: {
-        id: user.id
-      },
-      data: {
-        emailVerified: new Date(),
-        verifyToken: null,
-        verifyTokenExpiry: null
-      }
-    })
-
-    return { success: true }
-  } catch (error) {
-    console.error('Erreur lors de la vérification de l\'email:', error)
-    return { 
-      error: "Une erreur est survenue lors de la vérification de l'email" 
-    }
-  }
-}
-
 export async function register(data: RegisterData) {
   const { name, email, password } = data
 
@@ -64,8 +25,14 @@ export async function register(data: RegisterData) {
       return { error: 'Tous les champs sont requis' }
     }
 
-    if (password.length < 6) {
-      return { error: 'Le mot de passe doit contenir au moins 6 caractères' }
+    if (password.length < 8) {
+      return { error: 'Le mot de passe doit contenir au moins 8 caractères' }
+    }
+
+    // Vérification du format de l'email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return { error: 'Format d\'email invalide' }
     }
 
     // Vérifier si l'email existe déjà
@@ -141,5 +108,36 @@ export async function login(data: LoginData) {
   } catch (error) {
     console.error('Erreur de connexion:', error)
     return { error: "Une erreur est survenue" }
+  }
+}
+
+export async function verifyEmail(token: string) {
+  try {
+    const user = await prisma.user.findFirst({
+      where: {
+        verifyToken: token,
+        verifyTokenExpiry: {
+          gt: new Date()
+        }
+      }
+    })
+
+    if (!user) {
+      return { error: "Le lien de vérification est invalide ou a expiré" }
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerified: new Date(),
+        verifyToken: null,
+        verifyTokenExpiry: null
+      }
+    })
+
+    return { success: true }
+  } catch (error) {
+    console.error('Erreur lors de la vérification de l\'email:', error)
+    return { error: "Une erreur est survenue lors de la vérification de l'email" }
   }
 }
