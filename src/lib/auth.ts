@@ -1,6 +1,7 @@
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
+import GoogleProvider from "next-auth/providers/google"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
 
@@ -11,11 +12,15 @@ interface User {
   name: string | null;
   role: 'USER' | 'ADMIN';
   password: string;
+  emailVerified?: Date | null;
+  image?: string | null;
 }
 
 declare module "next-auth" {
   interface User {
-    role?: 'USER' | 'ADMIN';
+    role: 'USER' | 'ADMIN';
+    emailVerified?: Date | null;
+    image?: string | null;
   }
   
   interface Session {
@@ -24,6 +29,7 @@ declare module "next-auth" {
       role: 'USER' | 'ADMIN';
       email: string;
       name?: string | null;
+      image?: string | null;
     }
   }
 }
@@ -31,13 +37,27 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     id: string;
-    role?: 'USER' | 'ADMIN';
+    role: 'USER' | 'ADMIN';
   }
 }
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      profile(profile) {
+        return {
+          id: profile.sub,
+          name: profile.name,
+          email: profile.email,
+          image: profile.picture,
+          emailVerified: new Date(),
+          role: 'USER' as const
+        }
+      }
+    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -59,6 +79,10 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Utilisateur non trouvé")
         }
 
+        if (!user.emailVerified) {
+          throw new Error("Veuillez vérifier votre email avant de vous connecter")
+        }
+
         const passwordMatch = await bcrypt.compare(
           credentials.password,
           user.password
@@ -73,21 +97,16 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
+          image: user.image
         }
       }
     })
   ],
-  session: {
-    strategy: "jwt"
-  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        return {
-          ...token,
-          id: user.id,
-          role: user.role
-        }
+        token.id = user.id
+        token.role = user.role
       }
       return token
     },
@@ -97,10 +116,44 @@ export const authOptions: NextAuthOptions = {
         user: {
           ...session.user,
           id: token.id,
-          role: token.role
+          role: token.role as 'USER' | 'ADMIN'
         }
       }
+    },
+    async signIn({ account, profile }) {
+      console.log('Tentative de connexion avec:', { account, profile })
+      if (account?.provider === "google") {
+        if (!profile?.email) {
+          throw new Error("Aucun email trouvé dans le profil Google")
+        }
+        
+        const existingUser = await prisma.user.findUnique({
+          where: { email: profile.email }
+        })
+
+        if (!existingUser) {
+          try {
+            await prisma.user.create({
+              data: {
+                email: profile.email,
+                name: profile.name,
+                emailVerified: new Date(),
+                role: 'USER',
+                image: profile.image as string | null,
+                password: '' // Champ requis mais vide pour les utilisateurs Google
+              }
+            })
+          } catch (error) {
+            console.error('Erreur lors de la création de l\'utilisateur Google:', error)
+            return false
+          }
+        }
+      }
+      return true
     }
+  },
+  session: {
+    strategy: "jwt"
   },
   pages: {
     signIn: '/auth/login',

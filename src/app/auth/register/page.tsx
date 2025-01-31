@@ -11,6 +11,7 @@ import { FaEye, FaEyeSlash } from "react-icons/fa"
 import { PasswordStrength } from '@/components/ui/PasswordStrength'
 import { Modal } from '@/components/ui/Modal'
 import { SendgridVerificationButton } from '@/components/auth/sendgridVerificationButton'
+import { GoogleSignInButton } from '@/components/auth/googleSigninButton'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -175,6 +176,23 @@ export default function RegisterPage() {
               {isLoading ? 'Inscription en cours...' : 'S\'inscrire'}
             </Button>
           </form>
+
+          <div className="mt-6">
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300" />
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-gray-500">
+              Ou continuer avec
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <GoogleSignInButton />
+        </div>
+      </div>
 
           <div className="mt-4 text-center">
             <Link 
