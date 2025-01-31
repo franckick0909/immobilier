@@ -121,7 +121,6 @@ export const authOptions: NextAuthOptions = {
       }
     },
     async signIn({ account, profile }) {
-      console.log('Tentative de connexion avec:', { account, profile })
       if (account?.provider === "google") {
         if (!profile?.email) {
           throw new Error("Aucun email trouvé dans le profil Google")
@@ -131,33 +130,48 @@ export const authOptions: NextAuthOptions = {
           where: { email: profile.email }
         })
 
-        if (!existingUser) {
-          try {
-            await prisma.user.create({
-              data: {
-                email: profile.email,
-                name: profile.name,
-                emailVerified: new Date(),
-                role: 'USER',
-                image: profile.image as string | null,
-                password: '' // Champ requis mais vide pour les utilisateurs Google
+        if (existingUser) {
+          // Si l'utilisateur existe déjà, on autorise la connexion
+          return true
+        }
+
+        try {
+          await prisma.user.create({
+            data: {
+              email: profile.email,
+              name: profile.name,
+              emailVerified: new Date(),
+              role: 'USER',
+              image: profile.image as string,
+              password: '', // Champ requis mais vide pour les utilisateurs Google
+              accounts: {
+                create: {
+                  type: account.type,
+                  provider: account.provider,
+                  providerAccountId: account.providerAccountId,
+                  access_token: account.access_token,
+                  token_type: account.token_type,
+                  scope: account.scope,
+                  id_token: account.id_token,
+                }
               }
-            })
-          } catch (error) {
-            console.error('Erreur lors de la création de l\'utilisateur Google:', error)
-            return false
-          }
+            }
+          })
+          return true
+        } catch (error) {
+          console.error('Erreur lors de la création de l\'utilisateur Google:', error)
+          return false
         }
       }
       return true
     }
   },
-  session: {
-    strategy: "jwt"
-  },
   pages: {
     signIn: '/auth/login',
     error: '/auth/error',
+  },
+  session: {
+    strategy: "jwt"
   },
   secret: process.env.NEXTAUTH_SECRET,
 }
