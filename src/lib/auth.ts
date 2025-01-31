@@ -6,13 +6,11 @@ import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
 
 // Définition des types personnalisés
-interface User {
+interface AuthUser {
   id: string;
   email: string;
   name: string | null;
   role: 'USER' | 'ADMIN';
-  password: string;
-  emailVerified?: Date | null;
   image?: string | null;
 }
 
@@ -56,12 +54,12 @@ export const authOptions: NextAuthOptions = {
         }
       },
       profile(profile) {
-        console.log('Profile Google reçu:', profile) // Log pour déboguer
+        console.log('Profile Google reçu:', profile)
         return {
           id: profile.sub,
           name: profile.name,
           email: profile.email,
-          image: profile.picture,
+          image: profile.image,
           emailVerified: new Date(),
           role: 'USER' as const
         }
@@ -73,7 +71,7 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Mot de passe", type: "password" }
       },
-      async authorize(credentials) {
+      async authorize(credentials): Promise<AuthUser | null> {
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Informations de connexion manquantes")
         }
@@ -82,10 +80,17 @@ export const authOptions: NextAuthOptions = {
           where: {
             email: credentials.email
           }
-        }) as User | null
+        })
 
-        if (!user || !user?.password) {
-          throw new Error("Utilisateur non trouvé")
+        if (!user) {
+          console.log('Utilisateur non trouvé')
+          throw new Error("Email ou mot de passe incorrect")
+        }
+
+        // Vérifier si l'utilisateur s'est inscrit avec Google
+        if (!user.password) {
+          console.log('Utilisateur inscrit avec Google')
+          throw new Error("Veuillez vous connecter avec Google")
         }
 
         if (!user.emailVerified) {
@@ -105,7 +110,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role,
+          role: user.role as 'USER' | 'ADMIN',
           image: user.image
         }
       }
@@ -130,7 +135,8 @@ export const authOptions: NextAuthOptions = {
       }
     },
     async signIn({ account, profile, user }) {
-      console.log('SignIn callback:', { account, profile, user }) // Log pour déboguer
+      console.log('SignIn callback:', { account, profile, user })
+      
       if (account?.provider === "google") {
         if (!profile?.email) {
           console.error('Pas d\'email dans le profil Google')
@@ -142,9 +148,16 @@ export const authOptions: NextAuthOptions = {
             where: { email: profile.email }
           })
 
-          console.log('Utilisateur existant:', existingUser) // Log pour déboguer
+          console.log('Utilisateur existant:', existingUser)
 
           if (existingUser) {
+            // Mettre à jour l'image si elle a changé
+            if (existingUser.image !== profile.image) {
+              await prisma.user.update({
+                where: { id: existingUser.id },
+                data: { image: profile.image as string }
+              })
+            }
             return true
           }
 
@@ -154,8 +167,8 @@ export const authOptions: NextAuthOptions = {
               name: profile.name,
               emailVerified: new Date(),
               role: 'USER',
-              image: profile.image ?? null,
-              password: '', // Champ requis mais vide pour les utilisateurs Google
+              image: profile.image as string,
+              password: null,
               accounts: {
                 create: {
                   type: account.type,
@@ -169,10 +182,11 @@ export const authOptions: NextAuthOptions = {
               }
             }
           })
-          console.log('Nouvel utilisateur créé:', newUser) // Log pour déboguer
+
+          console.log('Nouvel utilisateur créé:', newUser)
           return true
         } catch (error) {
-          console.error('Erreur lors de la création de l\'utilisateur Google:', error)
+          console.error('Erreur lors de la création/mise à jour de l\'utilisateur Google:', error)
           return false
         }
       }
