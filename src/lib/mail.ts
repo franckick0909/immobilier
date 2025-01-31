@@ -1,20 +1,40 @@
 import sgMail from '@sendgrid/mail'
-import { ResponseError } from '@sendgrid/mail'
+import { ResponseError, MailDataRequired } from '@sendgrid/mail'
 
 // Initialiser SendGrid avec votre clé API
-sgMail.setApiKey(process.env.SENDGRID_API_KEY!)
+if (!process.env.SENDGRID_API_KEY) {
+  throw new Error('SENDGRID_API_KEY is not defined')
+}
+sgMail.setApiKey(process.env.SENDGRID_API_KEY)
 
 export async function sendVerificationEmail(email: string, token: string) {
   try {
-    console.log('Tentative d\'envoi d\'email à:', email)
+    console.log('Début de la procédure d\'envoi d\'email')
+    console.log('Email destinataire:', email)
     console.log('Token de vérification:', token)
 
-    const verificationLink = `${process.env.NEXTAUTH_URL}/auth/verify?token=${token}`
-    console.log('Lien de vérification:', verificationLink)
+    // Déterminer l'URL de base
+    const baseUrl = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}`
+      : process.env.NEXTAUTH_URL
 
-    const msg = {
+    if (!baseUrl) {
+      throw new Error('NEXTAUTH_URL ou VERCEL_URL doit être défini')
+    }
+
+    const verificationLink = `${baseUrl}/auth/verify?token=${token}`
+    console.log('URL de base:', baseUrl)
+    console.log('Lien de vérification complet:', verificationLink)
+
+    // Vérifier l'email d'envoi
+    const senderEmail = process.env.EMAIL_FROM
+    if (!senderEmail) {
+      throw new Error('EMAIL_FROM n\'est pas défini')
+    }
+
+    const msg: MailDataRequired = {
       to: email,
-      from: 'franckchapelon09@gmail.com', // Votre email vérifié sur SendGrid
+      from: senderEmail,
       subject: 'Vérifiez votre adresse email',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -54,25 +74,46 @@ export async function sendVerificationEmail(email: string, token: string) {
       `
     }
 
-    const result = await sgMail.send(msg)
-    console.log('Email envoyé avec succès:', result)
+    console.log('Configuration de l\'email:', {
+      to: msg.to,
+      from: msg.from,
+      subject: msg.subject
+    })
+
+    const [response] = await sgMail.send(msg)
+    console.log('Email envoyé avec succès. Response:', {
+      headers: response.headers,
+      body: response.body
+    })
+
     return { success: true }
 
   } catch (error: unknown) {
     console.error('Erreur lors de l\'envoi de l\'email:', error)
     
-    // Vérifier si l'erreur est une erreur SendGrid
+    // Log détaillé des erreurs SendGrid
     if (error instanceof Error && 'response' in error) {
       const sendGridError = error as ResponseError
       if (sendGridError.response) {
-        console.error('Détails de l\'erreur SendGrid:', sendGridError.response.body)
+        console.error('Détails de l\'erreur SendGrid:', {
+          body: sendGridError.response.body,
+          headers: sendGridError.response.headers
+        })
       }
     }
+
+    // Log des variables d'environnement (sans les valeurs sensibles)
+    console.log('Variables d\'environnement:', {
+      hasApiKey: !!process.env.SENDGRID_API_KEY,
+      hasEmailFrom: !!process.env.EMAIL_FROM,
+      nextAuthUrl: process.env.NEXTAUTH_URL,
+      vercelUrl: process.env.VERCEL_URL
+    })
     
     return { 
       error: error instanceof Error 
-        ? `Erreur: ${error.message}` 
-        : 'Une erreur est survenue lors de l\'envoi de l\'email'
+        ? `Erreur d'envoi d'email: ${error.message}` 
+        : 'Une erreur inconnue est survenue lors de l\'envoi de l\'email'
     }
   }
 }

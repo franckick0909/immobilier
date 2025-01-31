@@ -52,18 +52,22 @@ export async function register(data: RegisterData) {
     const verifyTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 heures
 
     // Créer l'utilisateur
-    await prisma.user.create({
+    const user = await prisma.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
         verifyToken,
         verifyTokenExpiry,
+
         role: 'USER'
       }
     })
 
+    console.log('User created successfully:', user.id)
+
     // Envoyer l'email de vérification
+    console.log('Attempting to send verification email')
     await sendVerificationEmail(email, verifyToken)
 
     console.log('Utilisateur créé avec succès:', email)
