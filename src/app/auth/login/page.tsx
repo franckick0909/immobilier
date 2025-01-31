@@ -33,16 +33,12 @@ function LoginForm() {
     const password = formData.get("password") as string;
     setCurrentEmail(email);
 
-    if (!email || !password) {
-      setError("Veuillez remplir tous les champs");
-      setIsLoading(false);
-      return;
-    }
-
     try {
-      // Utiliser la fonction login personnalisée d'abord
-      const loginResult = await login(formData);
-
+      // Extraire les données du FormData et les passer à login
+      const loginResult = await login({
+        email,
+        password
+      });
 
       if (loginResult.error) {
         setError(loginResult.error);
